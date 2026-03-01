@@ -23,6 +23,7 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  Star,
   Trash2,
   Upload,
   Users,
@@ -31,6 +32,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SubmittedStudent } from "../backend.d.ts";
 import { type Student, allStudents } from "../data";
 import { useActor } from "../hooks/useActor";
+import StudentCard from "./StudentCard";
 
 type SortKey = "name" | "year" | "examType" | "institution" | "section";
 type SortDir = "asc" | "desc";
@@ -56,20 +58,32 @@ function convertSubmittedStudent(s: SubmittedStudent, offset: number): Student {
     examType: s.examType as "Medical" | "BUET",
     year: Number(s.year) as 2024 | 2025,
     isSubmitted: true,
+    hasStarAchievement: s.hasStarAchievement,
+    starNote: s.starNote,
   };
 }
 
-export default function ProfilesTab() {
+interface ProfilesTabProps {
+  isAdmin?: boolean;
+  sessionToken?: string | null;
+}
+
+export default function ProfilesTab({
+  isAdmin = false,
+  sessionToken = null,
+}: ProfilesTabProps) {
   const { actor, isFetching: isActorFetching } = useActor();
   const [search, setSearch] = useState("");
   const [yearFilter, setYearFilter] = useState<string>("All");
   const [examFilter, setExamFilter] = useState<string>("All");
   const [sortKey, setSortKey] = useState<SortKey>("year");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
 
   const [submittedRaw, setSubmittedRaw] = useState<SubmittedStudent[]>([]);
   const [isFetchingSubmitted, setIsFetchingSubmitted] = useState(false);
   const [deletingId, setDeletingId] = useState<bigint | null>(null);
+  const [starringId, setStarringId] = useState<bigint | null>(null);
 
   const fetchSubmitted = useCallback(async () => {
     if (!actor) return;
@@ -110,6 +124,32 @@ export default function ProfilesTab() {
       console.error("Delete failed:", err);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleGrantStar = async (id: bigint, note: string) => {
+    if (!actor || !sessionToken) return;
+    setStarringId(id);
+    try {
+      await actor.grantStarAchievement(id, sessionToken, note);
+      await fetchSubmitted();
+    } catch (err) {
+      console.error("Grant star failed:", err);
+    } finally {
+      setStarringId(null);
+    }
+  };
+
+  const handleRemoveStar = async (id: bigint) => {
+    if (!actor || !sessionToken) return;
+    setStarringId(id);
+    try {
+      await actor.removeStarAchievement(id, sessionToken);
+      await fetchSubmitted();
+    } catch (err) {
+      console.error("Remove star failed:", err);
+    } finally {
+      setStarringId(null);
     }
   };
 
@@ -176,6 +216,9 @@ export default function ProfilesTab() {
       ? "bg-accent/20 text-teal border-accent/30"
       : "bg-primary/20 text-gold border-primary/30";
 
+  const getRawId = (student: Student) =>
+    submittedRaw.find((r) => 10000 + Number(r.id) === student.id);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -189,20 +232,41 @@ export default function ProfilesTab() {
             Complete searchable database of all CCPC admitted students
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={fetchSubmitted}
-          disabled={isFetchingSubmitted}
-          className="gap-2 border-border hover:border-primary/40 font-body text-sm"
-        >
-          {isFetchingSubmitted ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <RefreshCw className="w-3.5 h-3.5" />
-          )}
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex items-center gap-1 p-1 bg-secondary rounded-lg border border-border">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-7 px-3 text-xs font-display ${viewMode === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              onClick={() => setViewMode("table")}
+            >
+              Table
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-7 px-3 text-xs font-display ${viewMode === "cards" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              onClick={() => setViewMode("cards")}
+            >
+              Cards
+            </Button>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchSubmitted}
+            disabled={isFetchingSubmitted}
+            className="gap-2 border-border hover:border-primary/40 font-body text-sm"
+          >
+            {isFetchingSubmitted ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="w-3.5 h-3.5" />
+            )}
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Search & Filters */}
@@ -279,8 +343,14 @@ export default function ProfilesTab() {
         </Card>
         <Card className="border-border">
           <CardContent className="p-3 text-center">
-            <div className="text-2xl font-display font-bold text-foreground flex items-center justify-center gap-1">
-              {isFetchingSubmitted ? (
+            <div className="text-2xl font-display font-bold text-orange flex items-center justify-center gap-1">
+              {submittedStudents.filter((s) => s.hasStarAchievement).length >
+              0 ? (
+                <>
+                  <Star className="w-5 h-5 fill-orange text-orange" />
+                  {submittedStudents.filter((s) => s.hasStarAchievement).length}
+                </>
+              ) : isFetchingSubmitted ? (
                 <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
               ) : (
                 submittedStudents.length
@@ -288,193 +358,297 @@ export default function ProfilesTab() {
             </div>
             <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
               <Upload className="w-3 h-3" />
-              Submitted
+              {submittedStudents.filter((s) => s.hasStarAchievement).length > 0
+                ? "Star Achievements"
+                : "Submitted"}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Table */}
-      <Card className="border-border overflow-hidden">
-        <CardHeader className="pb-2 border-b border-border">
-          <CardTitle className="font-display text-base">
-            All Students ({filtered.length})
-          </CardTitle>
-        </CardHeader>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-secondary/30 hover:bg-secondary/30 border-border">
-                <TableHead className="w-10 text-xs font-display font-semibold text-muted-foreground">
-                  #
-                </TableHead>
-                <TableHead
-                  className="text-xs font-display font-semibold text-muted-foreground cursor-pointer hover:text-foreground"
-                  onClick={() => handleSort("name")}
-                >
-                  <div className="flex items-center gap-1">
-                    Name <SortIcon col="name" />
-                  </div>
-                </TableHead>
-                <TableHead
-                  className="text-xs font-display font-semibold text-muted-foreground cursor-pointer hover:text-foreground hidden sm:table-cell"
-                  onClick={() => handleSort("section")}
-                >
-                  <div className="flex items-center gap-1">
-                    Sec <SortIcon col="section" />
-                  </div>
-                </TableHead>
-                <TableHead
-                  className="text-xs font-display font-semibold text-muted-foreground cursor-pointer hover:text-foreground"
-                  onClick={() => handleSort("year")}
-                >
-                  <div className="flex items-center gap-1">
-                    Year <SortIcon col="year" />
-                  </div>
-                </TableHead>
-                <TableHead
-                  className="text-xs font-display font-semibold text-muted-foreground cursor-pointer hover:text-foreground"
-                  onClick={() => handleSort("examType")}
-                >
-                  <div className="flex items-center gap-1">
-                    Exam <SortIcon col="examType" />
-                  </div>
-                </TableHead>
-                <TableHead
-                  className="text-xs font-display font-semibold text-muted-foreground cursor-pointer hover:text-foreground"
-                  onClick={() => handleSort("institution")}
-                >
-                  <div className="flex items-center gap-1">
-                    Institution <SortIcon col="institution" />
-                  </div>
-                </TableHead>
-                <TableHead className="text-xs font-display font-semibold text-muted-foreground text-right hidden md:table-cell">
-                  Rank / Roll
-                </TableHead>
-                <TableHead className="w-10 text-xs font-display font-semibold text-muted-foreground text-center">
-                  &nbsp;
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((student, i) => (
-                <TableRow
+      {/* Cards View */}
+      {viewMode === "cards" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.length === 0 ? (
+            <div className="col-span-full text-center py-12 text-muted-foreground">
+              <Users className="w-10 h-10 mx-auto mb-3 opacity-20" />
+              <p>No students found matching your search.</p>
+            </div>
+          ) : (
+            filtered.map((student, i) => {
+              const rawEntry = getRawId(student);
+              return (
+                <StudentCard
                   key={student.id}
-                  style={{
-                    opacity: 0,
-                    animation: `fadeIn 0.3s ease-out ${Math.min(i * 0.015, 0.4)}s forwards`,
-                  }}
-                  className={`border-border/50 hover:bg-secondary/20 ${
-                    student.isSubmitted ? "bg-primary/3" : ""
-                  }`}
-                >
-                  <TableCell className="text-xs text-muted-foreground font-mono py-2.5">
-                    {i + 1}
-                  </TableCell>
-                  <TableCell className="font-semibold text-sm py-2.5">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {student.name}
-                      {student.highlight && (
-                        <span className="ml-1 text-gold text-xs">⭐</span>
-                      )}
-                      {student.isSubmitted && (
-                        <Badge className="text-xs bg-primary/15 text-gold/80 border border-primary/25 px-1.5 py-0 font-mono pointer-events-none">
-                          Submitted
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="py-2.5 hidden sm:table-cell">
-                    {student.section && student.section !== "-" ? (
-                      <Badge
-                        variant="outline"
-                        className="text-xs font-mono px-1.5"
-                      >
-                        {student.section}
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground/30 text-xs">
-                        —
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="py-2.5">
-                    <Badge
-                      variant="outline"
-                      className="text-xs font-mono px-1.5"
-                    >
-                      {student.year}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="py-2.5">
-                    <Badge
-                      variant="outline"
-                      className={`text-xs font-mono px-1.5 ${getExamBadgeClass(student.examType)}`}
-                    >
-                      {student.examType}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm py-2.5 max-w-[200px]">
-                    <span className="text-muted-foreground text-xs truncate block">
-                      {student.institution}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right py-2.5 hidden md:table-cell">
-                    {student.rank ? (
-                      <span className="font-mono text-xs text-teal font-semibold">
-                        #{student.rank}
-                      </span>
-                    ) : student.rollNo ? (
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {student.rollNo}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground/30 text-xs">
-                        —
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="py-2.5 text-center w-10">
-                    {student.isSubmitted ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-7 h-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => {
-                          const rawEntry = submittedRaw.find(
-                            (r) => 10000 + Number(r.id) === student.id,
-                          );
-                          if (rawEntry) handleDelete(rawEntry.id);
-                        }}
-                        disabled={deletingId !== null}
-                        title="Delete submitted student"
-                      >
-                        {deletingId !== null &&
-                        submittedRaw.find(
-                          (r) => 10000 + Number(r.id) === student.id,
-                        )?.id === deletingId ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-3.5 h-3.5" />
-                        )}
-                      </Button>
-                    ) : (
-                      <span />
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  student={student}
+                  index={i}
+                  isAdmin={isAdmin}
+                  onDelete={
+                    student.isSubmitted && rawEntry
+                      ? () => handleDelete(rawEntry.id)
+                      : undefined
+                  }
+                  onGrantStar={
+                    isAdmin && student.isSubmitted && rawEntry
+                      ? (note) => handleGrantStar(rawEntry.id, note)
+                      : undefined
+                  }
+                  onRemoveStar={
+                    isAdmin && student.isSubmitted && rawEntry
+                      ? () => handleRemoveStar(rawEntry.id)
+                      : undefined
+                  }
+                  isDeleting={
+                    rawEntry !== undefined && deletingId === rawEntry.id
+                  }
+                  isStarring={
+                    rawEntry !== undefined && starringId === rawEntry.id
+                  }
+                />
+              );
+            })
+          )}
         </div>
+      )}
 
-        {filtered.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground">
-            <Users className="w-10 h-10 mx-auto mb-3 opacity-20" />
-            <p>No students found matching your search.</p>
+      {/* Table View */}
+      {viewMode === "table" && (
+        <Card className="border-border overflow-hidden">
+          <CardHeader className="pb-2 border-b border-border">
+            <CardTitle className="font-display text-base">
+              All Students ({filtered.length})
+            </CardTitle>
+          </CardHeader>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-secondary/30 hover:bg-secondary/30 border-border">
+                  <TableHead className="w-10 text-xs font-display font-semibold text-muted-foreground">
+                    #
+                  </TableHead>
+                  <TableHead
+                    className="text-xs font-display font-semibold text-muted-foreground cursor-pointer hover:text-foreground"
+                    onClick={() => handleSort("name")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Name <SortIcon col="name" />
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="text-xs font-display font-semibold text-muted-foreground cursor-pointer hover:text-foreground hidden sm:table-cell"
+                    onClick={() => handleSort("section")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Sec <SortIcon col="section" />
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="text-xs font-display font-semibold text-muted-foreground cursor-pointer hover:text-foreground"
+                    onClick={() => handleSort("year")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Year <SortIcon col="year" />
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="text-xs font-display font-semibold text-muted-foreground cursor-pointer hover:text-foreground"
+                    onClick={() => handleSort("examType")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Exam <SortIcon col="examType" />
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="text-xs font-display font-semibold text-muted-foreground cursor-pointer hover:text-foreground"
+                    onClick={() => handleSort("institution")}
+                  >
+                    <div className="flex items-center gap-1">
+                      Institution <SortIcon col="institution" />
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-xs font-display font-semibold text-muted-foreground text-right hidden md:table-cell">
+                    Rank / Roll
+                  </TableHead>
+                  <TableHead className="w-24 text-xs font-display font-semibold text-muted-foreground text-center">
+                    Actions
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((student, i) => {
+                  const rawEntry = getRawId(student);
+                  const isBeingDeleted =
+                    rawEntry !== undefined && deletingId === rawEntry.id;
+                  const isBeingStarred =
+                    rawEntry !== undefined && starringId === rawEntry.id;
+
+                  return (
+                    <TableRow
+                      key={student.id}
+                      style={{
+                        opacity: 0,
+                        animation: `fadeIn 0.3s ease-out ${Math.min(i * 0.015, 0.4)}s forwards`,
+                      }}
+                      className={`border-border/50 hover:bg-secondary/20 ${
+                        student.hasStarAchievement
+                          ? "bg-orange/3"
+                          : student.isSubmitted
+                            ? "bg-primary/3"
+                            : ""
+                      }`}
+                    >
+                      <TableCell className="text-xs text-muted-foreground font-mono py-2.5">
+                        {i + 1}
+                      </TableCell>
+                      <TableCell className="font-semibold text-sm py-2.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {student.hasStarAchievement ? (
+                            <span className="text-orange font-display font-semibold text-sm">
+                              {student.name}
+                            </span>
+                          ) : (
+                            <span>{student.name}</span>
+                          )}
+                          {student.hasStarAchievement && (
+                            <Star className="w-3.5 h-3.5 text-orange fill-orange flex-shrink-0" />
+                          )}
+                          {student.highlight && !student.hasStarAchievement && (
+                            <span className="ml-1 text-gold text-xs">⭐</span>
+                          )}
+                          {student.isSubmitted && (
+                            <Badge className="text-xs bg-primary/15 text-gold/80 border border-primary/25 px-1.5 py-0 font-mono pointer-events-none">
+                              Submitted
+                            </Badge>
+                          )}
+                        </div>
+                        {student.hasStarAchievement && student.starNote && (
+                          <span className="text-xs text-orange/70 font-body mt-0.5 block">
+                            {student.starNote}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-2.5 hidden sm:table-cell">
+                        {student.section && student.section !== "-" ? (
+                          <Badge
+                            variant="outline"
+                            className="text-xs font-mono px-1.5"
+                          >
+                            {student.section}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground/30 text-xs">
+                            —
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-2.5">
+                        <Badge
+                          variant="outline"
+                          className="text-xs font-mono px-1.5"
+                        >
+                          {student.year}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="py-2.5">
+                        <Badge
+                          variant="outline"
+                          className={`text-xs font-mono px-1.5 ${getExamBadgeClass(student.examType)}`}
+                        >
+                          {student.examType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm py-2.5 max-w-[200px]">
+                        <span className="text-muted-foreground text-xs truncate block">
+                          {student.institution}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right py-2.5 hidden md:table-cell">
+                        {student.rank ? (
+                          <span className="font-mono text-xs text-teal font-semibold">
+                            #{student.rank}
+                          </span>
+                        ) : student.rollNo ? (
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {student.rollNo}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/30 text-xs">
+                            —
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-2.5 text-center w-24">
+                        <div className="flex items-center justify-center gap-1">
+                          {/* Delete — available to all on submitted students */}
+                          {student.isSubmitted && rawEntry && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-7 h-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDelete(rawEntry.id)}
+                              disabled={deletingId !== null || isBeingStarred}
+                              title="Delete submitted student"
+                            >
+                              {isBeingDeleted ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </Button>
+                          )}
+
+                          {/* Star grant / remove — admin only */}
+                          {isAdmin &&
+                            student.isSubmitted &&
+                            rawEntry &&
+                            (student.hasStarAchievement ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-7 h-7 p-0 text-orange hover:text-muted-foreground hover:bg-secondary"
+                                onClick={() => handleRemoveStar(rawEntry.id)}
+                                disabled={isBeingStarred || isBeingDeleted}
+                                title="Remove star achievement"
+                              >
+                                {isBeingStarred ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Star className="w-3.5 h-3.5 fill-orange" />
+                                )}
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-7 h-7 p-0 text-muted-foreground hover:text-orange hover:bg-orange/10"
+                                onClick={() => handleGrantStar(rawEntry.id, "")}
+                                disabled={isBeingStarred || isBeingDeleted}
+                                title="Grant star achievement"
+                              >
+                                {isBeingStarred ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Star className="w-3.5 h-3.5" />
+                                )}
+                              </Button>
+                            ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
-        )}
-      </Card>
+
+          {filtered.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground">
+              <Users className="w-10 h-10 mx-auto mb-3 opacity-20" />
+              <p>No students found matching your search.</p>
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   );
 }

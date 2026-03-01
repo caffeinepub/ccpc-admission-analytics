@@ -1,12 +1,21 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, Hash, Star } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { BookOpen, Hash, Loader2, Star, StarOff, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
+import { useState } from "react";
 import type { Student } from "../data";
 
 interface StudentCardProps {
   student: Student;
   index: number;
+  isAdmin?: boolean;
+  onDelete?: () => void | Promise<void>;
+  onGrantStar?: (note: string) => void | Promise<void>;
+  onRemoveStar?: () => void | Promise<void>;
+  isDeleting?: boolean;
+  isStarring?: boolean;
 }
 
 const sectionColors: Record<string, string> = {
@@ -28,14 +37,34 @@ const deptColors: Record<string, string> = {
   NCE: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
 };
 
-export default function StudentCard({ student, index }: StudentCardProps) {
-  const isHighlight = !!student.highlight;
+export default function StudentCard({
+  student,
+  index,
+  isAdmin = false,
+  onDelete,
+  onGrantStar,
+  onRemoveStar,
+  isDeleting = false,
+  isStarring = false,
+}: StudentCardProps) {
+  const isHighlight = !!student.highlight || !!student.hasStarAchievement;
+  const hasStar = !!student.hasStarAchievement;
   const initials = student.name
     .split(" ")
     .map((w) => w[0])
     .slice(0, 2)
     .join("")
     .toUpperCase();
+
+  const [showNoteInput, setShowNoteInput] = useState(false);
+  const [starNote, setStarNote] = useState("");
+
+  const handleGrantStar = async () => {
+    if (!onGrantStar) return;
+    await onGrantStar(starNote);
+    setShowNoteInput(false);
+    setStarNote("");
+  };
 
   return (
     <motion.div
@@ -45,12 +74,17 @@ export default function StudentCard({ student, index }: StudentCardProps) {
     >
       <Card
         className={`relative overflow-hidden card-hover border transition-all ${
-          isHighlight
-            ? "border-primary/50 bg-primary/5 glow-gold"
-            : "border-border hover:border-border/80"
+          hasStar
+            ? "star-achievement border-orange/40"
+            : isHighlight
+              ? "border-primary/50 bg-primary/5 glow-gold"
+              : "border-border hover:border-border/80"
         }`}
       >
-        {isHighlight && (
+        {hasStar && (
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-orange to-transparent" />
+        )}
+        {!hasStar && isHighlight && (
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent" />
         )}
 
@@ -59,9 +93,11 @@ export default function StudentCard({ student, index }: StudentCardProps) {
             {/* Avatar */}
             <div
               className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-sm font-display font-bold ${
-                isHighlight
-                  ? "bg-primary/25 text-gold border border-primary/40"
-                  : "bg-secondary text-muted-foreground"
+                hasStar
+                  ? "bg-orange/20 text-orange border border-orange/40"
+                  : isHighlight
+                    ? "bg-primary/25 text-gold border border-primary/40"
+                    : "bg-secondary text-muted-foreground"
               }`}
             >
               {initials}
@@ -71,11 +107,20 @@ export default function StudentCard({ student, index }: StudentCardProps) {
               {/* Name */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span
-                  className={`font-display font-semibold text-sm truncate ${isHighlight ? "text-gold" : "text-foreground"}`}
+                  className={`font-display font-semibold text-sm truncate ${
+                    hasStar
+                      ? "text-orange"
+                      : isHighlight
+                        ? "text-gold"
+                        : "text-foreground"
+                  }`}
                 >
                   {student.name}
                 </span>
-                {isHighlight && (
+                {hasStar && (
+                  <Star className="w-3.5 h-3.5 text-orange flex-shrink-0 fill-orange" />
+                )}
+                {!hasStar && isHighlight && (
                   <Star className="w-3.5 h-3.5 text-gold flex-shrink-0" />
                 )}
                 {student.quota && (
@@ -83,7 +128,22 @@ export default function StudentCard({ student, index }: StudentCardProps) {
                     Tribal
                   </Badge>
                 )}
+                {student.isSubmitted && (
+                  <Badge className="text-xs bg-primary/15 text-gold/80 border border-primary/25 px-1.5 py-0 font-mono pointer-events-none">
+                    Submitted
+                  </Badge>
+                )}
               </div>
+
+              {/* Star Achievement Badge */}
+              {hasStar && (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange/15 border border-orange/30 text-orange font-semibold glow-star">
+                    <Star className="w-3 h-3 fill-orange" />
+                    {student.starNote ? student.starNote : "Star Achievement"}
+                  </span>
+                </div>
+              )}
 
               {/* Section & Year */}
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
@@ -136,10 +196,109 @@ export default function StudentCard({ student, index }: StudentCardProps) {
               )}
 
               {/* Highlight text */}
-              {isHighlight && student.highlight && (
+              {!hasStar && isHighlight && student.highlight && (
                 <p className="text-xs text-gold/80 mt-1.5 font-semibold">
                   {student.highlight}
                 </p>
+              )}
+
+              {/* Admin actions for submitted students */}
+              {student.isSubmitted &&
+                (onDelete || (isAdmin && (onGrantStar || onRemoveStar))) && (
+                  <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-border/30">
+                    {/* Delete button — visible to all who have onDelete */}
+                    {onDelete && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2.5 gap-1.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        onClick={onDelete}
+                        disabled={isDeleting || isStarring}
+                        title="Delete student"
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3 h-3" />
+                        )}
+                        Delete
+                      </Button>
+                    )}
+
+                    {/* Star buttons — admin only */}
+                    {isAdmin && !hasStar && onGrantStar && !showNoteInput && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2.5 gap-1.5 text-xs text-muted-foreground hover:text-orange hover:bg-orange/10"
+                        onClick={() => setShowNoteInput(true)}
+                        disabled={isStarring || isDeleting}
+                        title="Grant star achievement"
+                      >
+                        <Star className="w-3 h-3" />
+                        Grant Star
+                      </Button>
+                    )}
+                    {isAdmin && hasStar && onRemoveStar && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2.5 gap-1.5 text-xs text-orange hover:text-muted-foreground hover:bg-secondary"
+                        onClick={onRemoveStar}
+                        disabled={isStarring || isDeleting}
+                        title="Remove star achievement"
+                      >
+                        {isStarring ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <StarOff className="w-3 h-3" />
+                        )}
+                        Remove Star
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+              {/* Note input for star grant */}
+              {showNoteInput && isAdmin && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  className="flex items-center gap-2 mt-2.5 pt-2 border-t border-border/30 overflow-hidden"
+                >
+                  <Input
+                    placeholder="Achievement note (optional)"
+                    value={starNote}
+                    onChange={(e) => setStarNote(e.target.value)}
+                    className="h-7 text-xs bg-secondary border-border font-body focus:border-orange/40 flex-1"
+                    disabled={isStarring}
+                  />
+                  <Button
+                    size="sm"
+                    className="h-7 px-2.5 gap-1 text-xs bg-orange hover:bg-orange/90 text-white border-0"
+                    onClick={handleGrantStar}
+                    disabled={isStarring}
+                  >
+                    {isStarring ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Star className="w-3 h-3 fill-current" />
+                    )}
+                    Award
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      setShowNoteInput(false);
+                      setStarNote("");
+                    }}
+                    disabled={isStarring}
+                  >
+                    ✕
+                  </Button>
+                </motion.div>
               )}
             </div>
           </div>

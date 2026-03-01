@@ -19,6 +19,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import {
   CheckCircle2,
+  ChevronDown,
   GraduationCap,
   Loader2,
   Plus,
@@ -26,7 +27,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useActor } from "../hooks/useActor";
 
 interface FormState {
@@ -49,6 +50,147 @@ const initialForm: FormState = {
   year: "2025",
 };
 
+const EXAM_TYPE_SUGGESTIONS = [
+  "Medical",
+  "BUET",
+  "DU Ka Unit",
+  "DU Kha Unit",
+  "CUET",
+  "KUET",
+  "RUET",
+  "JU",
+  "CU",
+  "RU",
+];
+
+interface ExamTypeComboboxProps {
+  value: string;
+  onChange: (val: string) => void;
+  disabled?: boolean;
+}
+
+function ExamTypeCombobox({
+  value,
+  onChange,
+  disabled,
+}: ExamTypeComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const [inputVal, setInputVal] = useState(value);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Sync external value changes (e.g. form reset)
+  useEffect(() => {
+    setInputVal(value);
+  }, [value]);
+
+  const filtered = EXAM_TYPE_SUGGESTIONS.filter((s) =>
+    s.toLowerCase().includes(inputVal.toLowerCase()),
+  );
+
+  const handleSelect = (suggestion: string) => {
+    setInputVal(suggestion);
+    onChange(suggestion);
+    setOpen(false);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    setInputVal(v);
+    onChange(v);
+    setOpen(true);
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <Input
+          value={inputVal}
+          onChange={handleInputChange}
+          onFocus={() => setOpen(true)}
+          placeholder="e.g. Medical, BUET, CUET…"
+          disabled={disabled}
+          className="bg-secondary border-border font-body focus:border-primary/60 pr-8"
+          autoComplete="off"
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => setOpen((o) => !o)}
+          disabled={disabled}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronDown className="w-4 h-4" />
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {open && (
+          <motion.ul
+            initial={{ opacity: 0, y: -4, scaleY: 0.96 }}
+            animate={{ opacity: 1, y: 0, scaleY: 1 }}
+            exit={{ opacity: 0, y: -4, scaleY: 0.96 }}
+            transition={{ duration: 0.12 }}
+            style={{ transformOrigin: "top" }}
+            className="absolute z-50 mt-1 w-full bg-card border border-border rounded-md shadow-xl overflow-hidden max-h-56 overflow-y-auto"
+          >
+            {filtered.length === 0 ? (
+              <li className="px-3 py-2 text-xs text-muted-foreground">
+                Press Enter or keep typing a custom value
+              </li>
+            ) : (
+              filtered.map((suggestion) => (
+                <li
+                  key={suggestion}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSelect(suggestion);
+                  }}
+                  className={`px-3 py-2 text-sm cursor-pointer font-body transition-colors flex items-center gap-2
+                    ${
+                      suggestion === value
+                        ? "bg-sky-500/20 text-sky-300 font-semibold"
+                        : "hover:bg-sky-500/10 hover:text-sky-300 text-foreground"
+                    }`}
+                >
+                  {suggestion === "Medical" && (
+                    <Badge className="text-xs bg-primary/20 text-gold border-primary/30 px-1.5 py-0 pointer-events-none">
+                      Medical
+                    </Badge>
+                  )}
+                  {suggestion === "BUET" && (
+                    <Badge className="text-xs bg-accent/20 text-teal border-accent/30 px-1.5 py-0 pointer-events-none">
+                      BUET
+                    </Badge>
+                  )}
+                  {suggestion !== "Medical" && suggestion !== "BUET" && (
+                    <Badge className="text-xs bg-sky-500/20 text-sky-300 border-sky-500/30 px-1.5 py-0 pointer-events-none">
+                      {suggestion}
+                    </Badge>
+                  )}
+                </li>
+              ))
+            )}
+          </motion.ul>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 interface SubmitStudentFormProps {
   onStudentSubmitted?: () => void;
 }
@@ -65,6 +207,7 @@ export default function SubmitStudentForm({
   const errors: Partial<Record<keyof FormState, string>> = {};
   if (!form.name.trim()) errors.name = "Name is required";
   if (!form.institution.trim()) errors.institution = "Institution is required";
+  if (!form.examType.trim()) errors.examType = "Exam type is required";
 
   const isValid = Object.keys(errors).length === 0;
 
@@ -125,10 +268,10 @@ export default function SubmitStudentForm({
           </div>
           <div>
             <h2 className="font-display text-2xl font-bold text-foreground">
-              Submit Student
+              Exam Form
             </h2>
             <p className="text-sm text-muted-foreground font-body">
-              Add a new CCPC student to the admission analytics
+              Submit student exam results to the analytics
             </p>
           </div>
         </div>
@@ -278,31 +421,16 @@ export default function SubmitStudentForm({
                   <Label className="font-display font-semibold text-sm text-foreground">
                     Exam Type <span className="text-gold">*</span>
                   </Label>
-                  <Select
+                  <ExamTypeCombobox
                     value={form.examType}
-                    onValueChange={(v) => handleChange("examType", v)}
+                    onChange={(v) => handleChange("examType", v)}
                     disabled={isSubmitting}
-                  >
-                    <SelectTrigger className="bg-secondary border-border w-full">
-                      <SelectValue placeholder="Select exam" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Medical">
-                        <span className="flex items-center gap-2">
-                          <Badge className="text-xs bg-primary/20 text-gold border-primary/30 px-1.5 py-0 pointer-events-none">
-                            Medical
-                          </Badge>
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="BUET">
-                        <span className="flex items-center gap-2">
-                          <Badge className="text-xs bg-accent/20 text-teal border-accent/30 px-1.5 py-0 pointer-events-none">
-                            BUET
-                          </Badge>
-                        </span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                  />
+                  {errors.examType && (
+                    <p className="text-xs text-destructive">
+                      {errors.examType}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">

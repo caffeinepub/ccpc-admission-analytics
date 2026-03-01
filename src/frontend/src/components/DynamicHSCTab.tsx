@@ -1,5 +1,7 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -17,10 +19,13 @@ import {
 } from "@/components/ui/table";
 import {
   Building2,
+  Check,
   Filter,
   GraduationCap,
+  Pencil,
   Stethoscope,
   Users,
+  X,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
@@ -38,6 +43,20 @@ import {
   YAxis,
 } from "recharts";
 import { type Student, getInstitutionStats, getSectionStats } from "../data";
+
+// Exam type suggestions for inline edit
+const EXAM_TYPE_SUGGESTIONS = [
+  "Medical",
+  "BUET",
+  "DU Ka Unit",
+  "DU Kha Unit",
+  "CUET",
+  "KUET",
+  "RUET",
+  "JU",
+  "CU",
+  "RU",
+];
 
 const CHART_COLORS = [
   "oklch(0.78 0.18 75)",
@@ -84,13 +103,238 @@ const CustomTooltip = ({
 export interface DynamicHSCTabProps {
   year: number;
   students: Student[];
+  isAdmin?: boolean;
 }
 
 const ALL_SECTIONS = ["All", "A", "B", "C", "D", "E", "F", "G", "H"];
 
-export default function DynamicHSCTab({ year, students }: DynamicHSCTabProps) {
+// Inline editable student row
+interface EditableStudentRowState {
+  name: string;
+  section: string;
+  examType: string;
+  institution: string;
+  rank: string;
+}
+
+interface InlineRowEditProps {
+  student: Student;
+  index: number;
+  isAdmin: boolean;
+  onSave: (updated: Partial<Student>) => void;
+}
+
+function InlineRowEdit({
+  student,
+  index,
+  isAdmin,
+  onSave,
+}: InlineRowEditProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<EditableStudentRowState>({
+    name: student.name,
+    section: student.section ?? "",
+    examType: student.examType,
+    institution: student.institution,
+    rank: student.rank != null ? String(student.rank) : "",
+  });
+
+  const handleSave = () => {
+    onSave({
+      name: draft.name.trim() || student.name,
+      section: draft.section.trim() || undefined,
+      examType: (draft.examType || student.examType) as "Medical" | "BUET",
+      institution: draft.institution.trim() || student.institution,
+      rank: draft.rank ? Number(draft.rank) : undefined,
+    });
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <TableRow className="border-border/50 bg-primary/5">
+        <TableCell className="text-xs text-muted-foreground font-mono py-2">
+          {index + 1}
+        </TableCell>
+        <TableCell className="py-2">
+          <Input
+            value={draft.name}
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            className="h-7 text-sm bg-secondary border-primary/30 focus:border-primary"
+            placeholder="Name"
+          />
+        </TableCell>
+        <TableCell className="py-2 hidden sm:table-cell">
+          <Input
+            value={draft.section}
+            onChange={(e) =>
+              setDraft({ ...draft, section: e.target.value.toUpperCase() })
+            }
+            className="h-7 w-14 text-sm bg-secondary border-primary/30 focus:border-primary font-mono uppercase"
+            maxLength={2}
+            placeholder="Sec"
+          />
+        </TableCell>
+        <TableCell className="py-2">
+          <Select
+            value={draft.examType}
+            onValueChange={(v) => setDraft({ ...draft, examType: v })}
+          >
+            <SelectTrigger className="h-7 w-28 bg-secondary border-primary/30 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {EXAM_TYPE_SUGGESTIONS.map((s) => (
+                <SelectItem key={s} value={s} className="text-xs">
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </TableCell>
+        <TableCell className="py-2">
+          <Input
+            value={draft.institution}
+            onChange={(e) =>
+              setDraft({ ...draft, institution: e.target.value })
+            }
+            className="h-7 text-sm bg-secondary border-primary/30 focus:border-primary"
+            placeholder="Institution"
+          />
+        </TableCell>
+        <TableCell className="py-2 hidden md:table-cell">
+          <Input
+            type="number"
+            value={draft.rank}
+            onChange={(e) => setDraft({ ...draft, rank: e.target.value })}
+            className="h-7 w-20 text-sm bg-secondary border-primary/30 focus:border-primary font-mono"
+            placeholder="Rank"
+          />
+        </TableCell>
+        <TableCell className="py-2">
+          <span className="flex items-center gap-1">
+            <Button
+              size="sm"
+              onClick={handleSave}
+              className="h-6 w-6 p-0 bg-green-600/80 hover:bg-green-600 text-white"
+            >
+              <Check className="w-3 h-3" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setEditing(false)}
+              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+            >
+              <X className="w-3 h-3" />
+            </Button>
+          </span>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  return (
+    <TableRow
+      style={{
+        opacity: 0,
+        animation: `fadeIn 0.3s ease-out ${Math.min(index * 0.02, 0.5)}s forwards`,
+      }}
+      className="border-border/50 hover:bg-secondary/20 bg-primary/3 group"
+    >
+      <TableCell className="text-xs text-muted-foreground font-mono py-2.5">
+        {index + 1}
+      </TableCell>
+      <TableCell className="font-semibold text-sm py-2.5">
+        <div className="flex items-center gap-1.5">
+          {student.name}
+          <Badge className="text-xs bg-primary/15 text-gold/80 border border-primary/25 px-1.5 py-0 font-mono pointer-events-none">
+            Submitted
+          </Badge>
+        </div>
+      </TableCell>
+      <TableCell className="py-2.5 hidden sm:table-cell">
+        {student.section && student.section !== "-" ? (
+          <Badge variant="outline" className="text-xs font-mono px-1.5">
+            {student.section}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground/30 text-xs">—</span>
+        )}
+      </TableCell>
+      <TableCell className="py-2.5">
+        <Badge
+          variant="outline"
+          className={`text-xs font-mono px-1.5 ${
+            student.examType === "BUET"
+              ? "bg-accent/20 text-teal border-accent/30"
+              : "bg-primary/20 text-gold border-primary/30"
+          }`}
+        >
+          {student.examType}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-sm py-2.5 max-w-[200px]">
+        <span className="text-muted-foreground text-xs truncate block">
+          {student.institution}
+        </span>
+      </TableCell>
+      <TableCell className="text-right py-2.5 hidden md:table-cell">
+        {student.rank ? (
+          <span className="font-mono text-xs text-teal font-semibold">
+            #{student.rank}
+          </span>
+        ) : student.department ? (
+          <span className="font-mono text-xs text-muted-foreground">
+            {student.department}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/30 text-xs">—</span>
+        )}
+      </TableCell>
+      {isAdmin && (
+        <TableCell className="py-2.5">
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="opacity-0 group-hover:opacity-100 transition-opacity text-primary/50 hover:text-primary"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        </TableCell>
+      )}
+    </TableRow>
+  );
+}
+
+export default function DynamicHSCTab({
+  year,
+  students: initialStudents,
+  isAdmin = false,
+}: DynamicHSCTabProps) {
   const [sectionFilter, setSectionFilter] = useState("All");
   const [institutionFilter, setInstitutionFilter] = useState("All");
+  // Local override for inline-edited students
+  const [studentOverrides, setStudentOverrides] = useState<
+    Map<number, Partial<Student>>
+  >(new Map());
+
+  const students = useMemo(
+    () =>
+      initialStudents.map((s) => {
+        const override = studentOverrides.get(s.id);
+        return override ? { ...s, ...override } : s;
+      }),
+    [initialStudents, studentOverrides],
+  );
+
+  const handleStudentSave = (id: number, updated: Partial<Student>) => {
+    setStudentOverrides((prev) => {
+      const next = new Map(prev);
+      next.set(id, { ...(next.get(id) ?? {}), ...updated });
+      return next;
+    });
+  };
 
   const medicalStudents = useMemo(
     () => students.filter((s) => s.examType === "Medical"),
@@ -459,6 +703,11 @@ export default function DynamicHSCTab({ year, students }: DynamicHSCTabProps) {
               <Badge className="bg-primary/15 text-gold border-primary/25 text-xs font-mono">
                 Submitted
               </Badge>
+              {isAdmin && (
+                <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-mono gap-1 flex items-center">
+                  <Pencil className="w-2.5 h-2.5" /> Admin: hover rows to edit
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <div className="overflow-x-auto">
@@ -483,76 +732,22 @@ export default function DynamicHSCTab({ year, students }: DynamicHSCTabProps) {
                   <TableHead className="text-xs font-display font-semibold text-muted-foreground text-right hidden md:table-cell">
                     Rank / Dept
                   </TableHead>
+                  {isAdmin && (
+                    <TableHead className="w-10 text-xs font-display font-semibold text-muted-foreground">
+                      <Pencil className="w-3 h-3 text-primary/50" />
+                    </TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((student, i) => (
-                  <TableRow
+                  <InlineRowEdit
                     key={student.id}
-                    style={{
-                      opacity: 0,
-                      animation: `fadeIn 0.3s ease-out ${Math.min(i * 0.02, 0.5)}s forwards`,
-                    }}
-                    className="border-border/50 hover:bg-secondary/20 bg-primary/3"
-                  >
-                    <TableCell className="text-xs text-muted-foreground font-mono py-2.5">
-                      {i + 1}
-                    </TableCell>
-                    <TableCell className="font-semibold text-sm py-2.5">
-                      <div className="flex items-center gap-1.5">
-                        {student.name}
-                        <Badge className="text-xs bg-primary/15 text-gold/80 border border-primary/25 px-1.5 py-0 font-mono pointer-events-none">
-                          Submitted
-                        </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-2.5 hidden sm:table-cell">
-                      {student.section && student.section !== "-" ? (
-                        <Badge
-                          variant="outline"
-                          className="text-xs font-mono px-1.5"
-                        >
-                          {student.section}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground/30 text-xs">
-                          —
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-2.5">
-                      <Badge
-                        variant="outline"
-                        className={`text-xs font-mono px-1.5 ${
-                          student.examType === "BUET"
-                            ? "bg-accent/20 text-teal border-accent/30"
-                            : "bg-primary/20 text-gold border-primary/30"
-                        }`}
-                      >
-                        {student.examType}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm py-2.5 max-w-[200px]">
-                      <span className="text-muted-foreground text-xs truncate block">
-                        {student.institution}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right py-2.5 hidden md:table-cell">
-                      {student.rank ? (
-                        <span className="font-mono text-xs text-teal font-semibold">
-                          #{student.rank}
-                        </span>
-                      ) : student.department ? (
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {student.department}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground/30 text-xs">
-                          —
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
+                    student={student}
+                    index={i}
+                    isAdmin={isAdmin}
+                    onSave={(updated) => handleStudentSave(student.id, updated)}
+                  />
                 ))}
               </TableBody>
             </Table>

@@ -10,8 +10,31 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface OverviewSettings {
+  'med2024Bangla' : string,
+  'med2025Badge' : string,
+  'med2024Total' : string,
+  'cardLabel0' : string,
+  'cardLabel1' : string,
+  'cardLabel2' : string,
+  'cardLabel3' : string,
+  'trendMed2024' : bigint,
+  'trendMed2025' : bigint,
+  'growthOverride' : string,
+  'yoySubtitle' : string,
+  'trendBuet2024' : bigint,
+  'med2024English' : string,
+}
+export interface StarAnnouncement {
+  'id' : bigint,
+  'createdAt' : bigint,
+  'text' : string,
+  'emoji' : string,
+}
 export interface SubmittedStudent {
   'id' : bigint,
+  'hasStarAchievement' : boolean,
+  'starNote' : [] | [string],
   'institution' : string,
   'name' : string,
   'rank' : [] | [bigint],
@@ -22,13 +45,32 @@ export interface SubmittedStudent {
   'examType' : string,
 }
 export interface _SERVICE {
+  'addStarAnnouncement' : ActorMethod<[string, string, string], bigint>,
+  'adminLogin' : ActorMethod<[string, string, string], [] | [string]>,
   'deleteSubmittedStudent' : ActorMethod<[bigint], boolean>,
+  'editStarAnnouncement' : ActorMethod<
+    [bigint, string, string, string],
+    boolean
+  >,
+  'getAdminList' : ActorMethod<[string], Array<[string, string]>>,
+  'getOverviewSettings' : ActorMethod<[], OverviewSettings>,
+  'getStarAnnouncements' : ActorMethod<[], Array<StarAnnouncement>>,
   'getSubmittedStudents' : ActorMethod<[], Array<SubmittedStudent>>,
+  'grantStarAchievement' : ActorMethod<[bigint, string, string], boolean>,
+  'initializeDefaultAdmin' : ActorMethod<[], undefined>,
+  'isSessionValid' : ActorMethod<[string], boolean>,
   'ping' : ActorMethod<[], string>,
+  'registerAdmin' : ActorMethod<
+    [string, string, string, string, string],
+    boolean
+  >,
+  'removeStarAchievement' : ActorMethod<[bigint, string], boolean>,
+  'removeStarAnnouncement' : ActorMethod<[bigint, string], boolean>,
   'submitStudent' : ActorMethod<
     [string, string, string, string, [] | [bigint], string, bigint],
     bigint
   >,
+  'updateOverviewSettings' : ActorMethod<[OverviewSettings, string], boolean>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

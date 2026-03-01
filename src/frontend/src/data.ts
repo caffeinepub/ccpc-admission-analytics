@@ -15,6 +15,8 @@ export interface Student {
   version?: string;
   highlight?: string;
   isSubmitted?: boolean;
+  hasStarAchievement?: boolean;
+  starNote?: string;
 }
 
 // ─── HSC 2025 Medical Admissions ──────────────────────────────────────────

@@ -1,7 +1,16 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Award, Building2, Hash, Stethoscope } from "lucide-react";
+import {
+  Award,
+  Building2,
+  Check,
+  Hash,
+  Pencil,
+  Stethoscope,
+  X,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { buet2024, medical2024 } from "../data";
@@ -15,8 +24,101 @@ const deptColorMap: Record<string, string> = {
   NCE: "bg-indigo-500/20 text-indigo-300",
 };
 
-export default function HSC2024Tab() {
+interface AdminInlineEditProps {
+  value: string | number;
+  isAdmin: boolean;
+  onSave: (v: string) => void;
+  inputClassName?: string;
+  displayClassName?: string;
+}
+
+function AdminInlineEdit({
+  value,
+  isAdmin,
+  onSave,
+  inputClassName = "",
+  displayClassName = "",
+}: AdminInlineEditProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value));
+  const [hovering, setHovering] = useState(false);
+
+  if (!isAdmin) return <span className={displayClassName}>{value}</span>;
+
+  if (editing) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          className={`h-7 text-sm bg-secondary border-primary/30 focus:border-primary px-2 ${inputClassName}`}
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              onSave(draft);
+              setEditing(false);
+            }
+            if (e.key === "Escape") setEditing(false);
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            onSave(draft);
+            setEditing(false);
+          }}
+          className="text-green-500 hover:text-green-400"
+        >
+          <Check className="w-3 h-3" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="text-muted-foreground hover:text-destructive"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 cursor-pointer group ${displayClassName}`}
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      onClick={() => {
+        setDraft(String(value));
+        setEditing(true);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          setDraft(String(value));
+          setEditing(true);
+        }
+      }}
+    >
+      {value}
+      {hovering && (
+        <Pencil className="w-2.5 h-2.5 text-primary/50 hover:text-primary transition-colors" />
+      )}
+    </span>
+  );
+}
+
+interface HSC2024TabProps {
+  isAdmin?: boolean;
+}
+
+export default function HSC2024Tab({ isAdmin = false }: HSC2024TabProps) {
   const [subTab, setSubTab] = useState("buet");
+
+  // Admin-editable values
+  const [bestRank, setBestRank] = useState(277);
+  const [bestRankName, setBestRankName] = useState("Sadman Nuheen");
+  const [medTotal, setMedTotal] = useState(25);
+  const [medBangla, setMedBangla] = useState(10);
+  const [medEnglish, setMedEnglish] = useState(15);
 
   // Sort BUET by rank
   const sortedBUET = [...buet2024].sort(
@@ -67,8 +169,25 @@ export default function HSC2024Tab() {
                   <p className="text-sm text-foreground/80 mt-0.5">
                     10 CCPC students secured positions in Bangladesh University
                     of Engineering and Technology. Best rank:{" "}
-                    <span className="text-gold font-bold">#277</span> by{" "}
-                    <span className="font-semibold">Sadman Nuheen</span> (EEE).
+                    <AdminInlineEdit
+                      value={`#${bestRank}`}
+                      isAdmin={isAdmin}
+                      onSave={(v) => {
+                        const n = Number(v.replace("#", ""));
+                        if (!Number.isNaN(n)) setBestRank(n);
+                      }}
+                      displayClassName="text-gold font-bold"
+                      inputClassName="w-16"
+                    />{" "}
+                    by{" "}
+                    <AdminInlineEdit
+                      value={bestRankName}
+                      isAdmin={isAdmin}
+                      onSave={setBestRankName}
+                      displayClassName="font-semibold"
+                      inputClassName="w-32"
+                    />{" "}
+                    (EEE).
                   </p>
                 </div>
               </div>
@@ -221,12 +340,44 @@ export default function HSC2024Tab() {
                     Medical Admissions 2024 — Summary
                   </p>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    <Badge className="bg-secondary font-mono">Total: 25</Badge>
+                    <Badge className="bg-secondary font-mono">
+                      Total:{" "}
+                      <AdminInlineEdit
+                        value={medTotal}
+                        isAdmin={isAdmin}
+                        onSave={(v) => {
+                          const n = Number(v);
+                          if (!Number.isNaN(n)) setMedTotal(n);
+                        }}
+                        displayClassName="font-mono font-bold ml-1"
+                        inputClassName="w-12"
+                      />
+                    </Badge>
                     <Badge className="bg-accent/20 text-teal border-accent/30 font-mono">
-                      Bangla Version: 10
+                      Bangla Version:{" "}
+                      <AdminInlineEdit
+                        value={medBangla}
+                        isAdmin={isAdmin}
+                        onSave={(v) => {
+                          const n = Number(v);
+                          if (!Number.isNaN(n)) setMedBangla(n);
+                        }}
+                        displayClassName="font-mono font-bold ml-1"
+                        inputClassName="w-12"
+                      />
                     </Badge>
                     <Badge className="bg-primary/20 text-gold border-primary/30 font-mono">
-                      English Version: 15
+                      English Version:{" "}
+                      <AdminInlineEdit
+                        value={medEnglish}
+                        isAdmin={isAdmin}
+                        onSave={(v) => {
+                          const n = Number(v);
+                          if (!Number.isNaN(n)) setMedEnglish(n);
+                        }}
+                        displayClassName="font-mono font-bold ml-1"
+                        inputClassName="w-12"
+                      />
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">

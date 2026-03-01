@@ -89,8 +89,31 @@ export class ExternalBlob {
         return this;
     }
 }
+export interface StarAnnouncement {
+    id: bigint;
+    createdAt: bigint;
+    text: string;
+    emoji: string;
+}
+export interface OverviewSettings {
+    med2024Bangla: string;
+    med2025Badge: string;
+    med2024Total: string;
+    cardLabel0: string;
+    cardLabel1: string;
+    cardLabel2: string;
+    cardLabel3: string;
+    trendMed2024: bigint;
+    trendMed2025: bigint;
+    growthOverride: string;
+    yoySubtitle: string;
+    trendBuet2024: bigint;
+    med2024English: string;
+}
 export interface SubmittedStudent {
     id: bigint;
+    hasStarAchievement: boolean;
+    starNote?: string;
     institution: string;
     name: string;
     rank?: bigint;
@@ -101,14 +124,55 @@ export interface SubmittedStudent {
     examType: string;
 }
 export interface backendInterface {
+    addStarAnnouncement(emoji: string, text: string, sessionToken: string): Promise<bigint>;
+    adminLogin(collegeId: string, email: string, password: string): Promise<string | null>;
     deleteSubmittedStudent(id: bigint): Promise<boolean>;
+    editStarAnnouncement(id: bigint, emoji: string, text: string, sessionToken: string): Promise<boolean>;
+    getAdminList(sessionToken: string): Promise<Array<[string, string]>>;
+    getOverviewSettings(): Promise<OverviewSettings>;
+    getStarAnnouncements(): Promise<Array<StarAnnouncement>>;
     getSubmittedStudents(): Promise<Array<SubmittedStudent>>;
+    grantStarAchievement(studentId: bigint, sessionToken: string, note: string): Promise<boolean>;
+    initializeDefaultAdmin(): Promise<void>;
+    isSessionValid(token: string): Promise<boolean>;
     ping(): Promise<string>;
+    registerAdmin(collegeId: string, email: string, password: string, name: string, sessionToken: string): Promise<boolean>;
+    removeStarAchievement(studentId: bigint, sessionToken: string): Promise<boolean>;
+    removeStarAnnouncement(id: bigint, sessionToken: string): Promise<boolean>;
     submitStudent(name: string, institution: string, section: string, department: string, rank: bigint | null, examType: string, year: bigint): Promise<bigint>;
+    updateOverviewSettings(settings: OverviewSettings, sessionToken: string): Promise<boolean>;
 }
 import type { SubmittedStudent as _SubmittedStudent } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
+    async addStarAnnouncement(arg0: string, arg1: string, arg2: string): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addStarAnnouncement(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addStarAnnouncement(arg0, arg1, arg2);
+            return result;
+        }
+    }
+    async adminLogin(arg0: string, arg1: string, arg2: string): Promise<string | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.adminLogin(arg0, arg1, arg2);
+                return from_candid_opt_n1(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.adminLogin(arg0, arg1, arg2);
+            return from_candid_opt_n1(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async deleteSubmittedStudent(arg0: bigint): Promise<boolean> {
         if (this.processError) {
             try {
@@ -123,18 +187,116 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async editStarAnnouncement(arg0: bigint, arg1: string, arg2: string, arg3: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.editStarAnnouncement(arg0, arg1, arg2, arg3);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.editStarAnnouncement(arg0, arg1, arg2, arg3);
+            return result;
+        }
+    }
+    async getAdminList(arg0: string): Promise<Array<[string, string]>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAdminList(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAdminList(arg0);
+            return result;
+        }
+    }
+    async getOverviewSettings(): Promise<OverviewSettings> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getOverviewSettings();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getOverviewSettings();
+            return result;
+        }
+    }
+    async getStarAnnouncements(): Promise<Array<StarAnnouncement>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getStarAnnouncements();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getStarAnnouncements();
+            return result;
+        }
+    }
     async getSubmittedStudents(): Promise<Array<SubmittedStudent>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getSubmittedStudents();
-                return from_candid_vec_n1(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n2(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getSubmittedStudents();
-            return from_candid_vec_n1(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n2(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async grantStarAchievement(arg0: bigint, arg1: string, arg2: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.grantStarAchievement(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.grantStarAchievement(arg0, arg1, arg2);
+            return result;
+        }
+    }
+    async initializeDefaultAdmin(): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.initializeDefaultAdmin();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.initializeDefaultAdmin();
+            return result;
+        }
+    }
+    async isSessionValid(arg0: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.isSessionValid(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.isSessionValid(arg0);
+            return result;
         }
     }
     async ping(): Promise<string> {
@@ -151,29 +313,90 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async submitStudent(arg0: string, arg1: string, arg2: string, arg3: string, arg4: bigint | null, arg5: string, arg6: bigint): Promise<bigint> {
+    async registerAdmin(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string): Promise<boolean> {
         if (this.processError) {
             try {
-                const result = await this.actor.submitStudent(arg0, arg1, arg2, arg3, to_candid_opt_n5(this._uploadFile, this._downloadFile, arg4), arg5, arg6);
+                const result = await this.actor.registerAdmin(arg0, arg1, arg2, arg3, arg4);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.submitStudent(arg0, arg1, arg2, arg3, to_candid_opt_n5(this._uploadFile, this._downloadFile, arg4), arg5, arg6);
+            const result = await this.actor.registerAdmin(arg0, arg1, arg2, arg3, arg4);
+            return result;
+        }
+    }
+    async removeStarAchievement(arg0: bigint, arg1: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.removeStarAchievement(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.removeStarAchievement(arg0, arg1);
+            return result;
+        }
+    }
+    async removeStarAnnouncement(arg0: bigint, arg1: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.removeStarAnnouncement(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.removeStarAnnouncement(arg0, arg1);
+            return result;
+        }
+    }
+    async submitStudent(arg0: string, arg1: string, arg2: string, arg3: string, arg4: bigint | null, arg5: string, arg6: bigint): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.submitStudent(arg0, arg1, arg2, arg3, to_candid_opt_n6(this._uploadFile, this._downloadFile, arg4), arg5, arg6);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.submitStudent(arg0, arg1, arg2, arg3, to_candid_opt_n6(this._uploadFile, this._downloadFile, arg4), arg5, arg6);
+            return result;
+        }
+    }
+    async updateOverviewSettings(arg0: OverviewSettings, arg1: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateOverviewSettings(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateOverviewSettings(arg0, arg1);
             return result;
         }
     }
 }
-function from_candid_SubmittedStudent_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _SubmittedStudent): SubmittedStudent {
-    return from_candid_record_n3(_uploadFile, _downloadFile, value);
+function from_candid_SubmittedStudent_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _SubmittedStudent): SubmittedStudent {
+    return from_candid_record_n4(_uploadFile, _downloadFile, value);
 }
-function from_candid_opt_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [bigint]): bigint | null {
+function from_candid_opt_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [string]): string | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_record_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function from_candid_opt_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [bigint]): bigint | null {
+    return value.length === 0 ? null : value[0];
+}
+function from_candid_record_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     id: bigint;
+    hasStarAchievement: boolean;
+    starNote: [] | [string];
     institution: string;
     name: string;
     rank: [] | [bigint];
@@ -184,6 +407,8 @@ function from_candid_record_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint
     examType: string;
 }): {
     id: bigint;
+    hasStarAchievement: boolean;
+    starNote?: string;
     institution: string;
     name: string;
     rank?: bigint;
@@ -195,9 +420,11 @@ function from_candid_record_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint
 } {
     return {
         id: value.id,
+        hasStarAchievement: value.hasStarAchievement,
+        starNote: record_opt_to_undefined(from_candid_opt_n1(_uploadFile, _downloadFile, value.starNote)),
         institution: value.institution,
         name: value.name,
-        rank: record_opt_to_undefined(from_candid_opt_n4(_uploadFile, _downloadFile, value.rank)),
+        rank: record_opt_to_undefined(from_candid_opt_n5(_uploadFile, _downloadFile, value.rank)),
         year: value.year,
         section: value.section,
         submittedAt: value.submittedAt,
@@ -205,10 +432,10 @@ function from_candid_record_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint
         examType: value.examType
     };
 }
-function from_candid_vec_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_SubmittedStudent>): Array<SubmittedStudent> {
-    return value.map((x)=>from_candid_SubmittedStudent_n2(_uploadFile, _downloadFile, x));
+function from_candid_vec_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_SubmittedStudent>): Array<SubmittedStudent> {
+    return value.map((x)=>from_candid_SubmittedStudent_n3(_uploadFile, _downloadFile, x));
 }
-function to_candid_opt_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: bigint | null): [] | [bigint] {
+function to_candid_opt_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: bigint | null): [] | [bigint] {
     return value === null ? candid_none() : candid_some(value);
 }
 export interface CreateActorOptions {

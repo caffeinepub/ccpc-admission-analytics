@@ -8,8 +8,31 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const OverviewSettings = IDL.Record({
+  'med2024Bangla' : IDL.Text,
+  'med2025Badge' : IDL.Text,
+  'med2024Total' : IDL.Text,
+  'cardLabel0' : IDL.Text,
+  'cardLabel1' : IDL.Text,
+  'cardLabel2' : IDL.Text,
+  'cardLabel3' : IDL.Text,
+  'trendMed2024' : IDL.Nat,
+  'trendMed2025' : IDL.Nat,
+  'growthOverride' : IDL.Text,
+  'yoySubtitle' : IDL.Text,
+  'trendBuet2024' : IDL.Nat,
+  'med2024English' : IDL.Text,
+});
+export const StarAnnouncement = IDL.Record({
+  'id' : IDL.Nat,
+  'createdAt' : IDL.Int,
+  'text' : IDL.Text,
+  'emoji' : IDL.Text,
+});
 export const SubmittedStudent = IDL.Record({
   'id' : IDL.Nat,
+  'hasStarAchievement' : IDL.Bool,
+  'starNote' : IDL.Opt(IDL.Text),
   'institution' : IDL.Text,
   'name' : IDL.Text,
   'rank' : IDL.Opt(IDL.Nat),
@@ -21,9 +44,45 @@ export const SubmittedStudent = IDL.Record({
 });
 
 export const idlService = IDL.Service({
+  'addStarAnnouncement' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Nat],
+      [],
+    ),
+  'adminLogin' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Opt(IDL.Text)],
+      [],
+    ),
   'deleteSubmittedStudent' : IDL.Func([IDL.Nat], [IDL.Bool], []),
+  'editStarAnnouncement' : IDL.Func(
+      [IDL.Nat, IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Bool],
+      [],
+    ),
+  'getAdminList' : IDL.Func(
+      [IDL.Text],
+      [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text))],
+      ['query'],
+    ),
+  'getOverviewSettings' : IDL.Func([], [OverviewSettings], ['query']),
+  'getStarAnnouncements' : IDL.Func([], [IDL.Vec(StarAnnouncement)], ['query']),
   'getSubmittedStudents' : IDL.Func([], [IDL.Vec(SubmittedStudent)], ['query']),
+  'grantStarAchievement' : IDL.Func(
+      [IDL.Nat, IDL.Text, IDL.Text],
+      [IDL.Bool],
+      [],
+    ),
+  'initializeDefaultAdmin' : IDL.Func([], [], []),
+  'isSessionValid' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
   'ping' : IDL.Func([], [IDL.Text], ['query']),
+  'registerAdmin' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Bool],
+      [],
+    ),
+  'removeStarAchievement' : IDL.Func([IDL.Nat, IDL.Text], [IDL.Bool], []),
+  'removeStarAnnouncement' : IDL.Func([IDL.Nat, IDL.Text], [IDL.Bool], []),
   'submitStudent' : IDL.Func(
       [
         IDL.Text,
@@ -37,13 +96,41 @@ export const idlService = IDL.Service({
       [IDL.Nat],
       [],
     ),
+  'updateOverviewSettings' : IDL.Func(
+      [OverviewSettings, IDL.Text],
+      [IDL.Bool],
+      [],
+    ),
 });
 
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
+  const OverviewSettings = IDL.Record({
+    'med2024Bangla' : IDL.Text,
+    'med2025Badge' : IDL.Text,
+    'med2024Total' : IDL.Text,
+    'cardLabel0' : IDL.Text,
+    'cardLabel1' : IDL.Text,
+    'cardLabel2' : IDL.Text,
+    'cardLabel3' : IDL.Text,
+    'trendMed2024' : IDL.Nat,
+    'trendMed2025' : IDL.Nat,
+    'growthOverride' : IDL.Text,
+    'yoySubtitle' : IDL.Text,
+    'trendBuet2024' : IDL.Nat,
+    'med2024English' : IDL.Text,
+  });
+  const StarAnnouncement = IDL.Record({
+    'id' : IDL.Nat,
+    'createdAt' : IDL.Int,
+    'text' : IDL.Text,
+    'emoji' : IDL.Text,
+  });
   const SubmittedStudent = IDL.Record({
     'id' : IDL.Nat,
+    'hasStarAchievement' : IDL.Bool,
+    'starNote' : IDL.Opt(IDL.Text),
     'institution' : IDL.Text,
     'name' : IDL.Text,
     'rank' : IDL.Opt(IDL.Nat),
@@ -55,13 +142,53 @@ export const idlFactory = ({ IDL }) => {
   });
   
   return IDL.Service({
+    'addStarAnnouncement' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Nat],
+        [],
+      ),
+    'adminLogin' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Opt(IDL.Text)],
+        [],
+      ),
     'deleteSubmittedStudent' : IDL.Func([IDL.Nat], [IDL.Bool], []),
+    'editStarAnnouncement' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Bool],
+        [],
+      ),
+    'getAdminList' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text))],
+        ['query'],
+      ),
+    'getOverviewSettings' : IDL.Func([], [OverviewSettings], ['query']),
+    'getStarAnnouncements' : IDL.Func(
+        [],
+        [IDL.Vec(StarAnnouncement)],
+        ['query'],
+      ),
     'getSubmittedStudents' : IDL.Func(
         [],
         [IDL.Vec(SubmittedStudent)],
         ['query'],
       ),
+    'grantStarAchievement' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Text],
+        [IDL.Bool],
+        [],
+      ),
+    'initializeDefaultAdmin' : IDL.Func([], [], []),
+    'isSessionValid' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
     'ping' : IDL.Func([], [IDL.Text], ['query']),
+    'registerAdmin' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Bool],
+        [],
+      ),
+    'removeStarAchievement' : IDL.Func([IDL.Nat, IDL.Text], [IDL.Bool], []),
+    'removeStarAnnouncement' : IDL.Func([IDL.Nat, IDL.Text], [IDL.Bool], []),
     'submitStudent' : IDL.Func(
         [
           IDL.Text,
@@ -73,6 +200,11 @@ export const idlFactory = ({ IDL }) => {
           IDL.Nat,
         ],
         [IDL.Nat],
+        [],
+      ),
+    'updateOverviewSettings' : IDL.Func(
+        [OverviewSettings, IDL.Text],
+        [IDL.Bool],
         [],
       ),
   });

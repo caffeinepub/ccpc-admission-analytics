@@ -72,6 +72,10 @@ export default {
           border: "oklch(var(--sidebar-border))",
           ring: "oklch(var(--sidebar-ring))",
         },
+        // Custom semantic tokens
+        skyBlue: "oklch(var(--sky-blue))",
+        orange: "oklch(var(--orange))",
+        goldWarm: "oklch(var(--gold-warm))",
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -1,8 +1,22 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Star, TrendingUp, Users } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Building2,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Edit2,
+  Pencil,
+  Shield,
+  Star,
+  TrendingUp,
+  Users,
+  X,
+} from "lucide-react";
 import { motion } from "motion/react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -26,6 +40,7 @@ import {
   medical2024,
   medical2025,
 } from "../data";
+import { useActor } from "../hooks/useActor";
 
 const CHART_COLORS = [
   "oklch(0.78 0.18 75)", // gold
@@ -40,6 +55,8 @@ const CHART_COLORS = [
 
 interface OverviewTabProps {
   submittedStudents?: Student[];
+  isAdmin?: boolean;
+  sessionToken?: string | null;
 }
 
 const CustomTooltip = ({
@@ -73,12 +90,190 @@ const CustomTooltip = ({
   return null;
 };
 
+// Inline editable stat card value
+function EditableStatValue({
+  value,
+  isAdmin,
+  onSave,
+}: {
+  value: string | number;
+  isAdmin: boolean;
+  onSave: (v: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value));
+  const [hovering, setHovering] = useState(false);
+
+  if (!isAdmin) return <>{value}</>;
+
+  if (editing) {
+    return (
+      <span className="flex items-center gap-1">
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          className="h-8 w-20 text-sm font-display font-bold bg-secondary border-primary/30 focus:border-primary px-2"
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              onSave(draft);
+              setEditing(false);
+            }
+            if (e.key === "Escape") setEditing(false);
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            onSave(draft);
+            setEditing(false);
+          }}
+          className="text-green-500 hover:text-green-400 transition-colors"
+        >
+          <Check className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="text-muted-foreground hover:text-destructive transition-colors"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="flex items-center gap-1 cursor-pointer group"
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      onClick={() => {
+        setDraft(String(value));
+        setEditing(true);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          setDraft(String(value));
+          setEditing(true);
+        }
+      }}
+    >
+      {value}
+      {hovering && (
+        <Pencil className="w-3 h-3 text-primary/50 hover:text-primary transition-colors" />
+      )}
+    </span>
+  );
+}
+
 export default function OverviewTab({
   submittedStudents = [],
+  isAdmin = false,
+  sessionToken,
 }: OverviewTabProps) {
+  const { actor } = useActor();
   const med2025Stats = getInstitutionStats(medical2025).slice(0, 10);
   const med2024Stats = getInstitutionStats(medical2024).slice(0, 10);
   const deptStats = getDeptStats(buet2024);
+
+  // Admin-editable trend base values
+  const [trendBase2024Medical, setTrendBase2024Medical] = useState(25);
+  const [trendBase2024Buet, setTrendBase2024Buet] = useState(10);
+  const [trendBase2025Medical, setTrendBase2025Medical] = useState(36);
+  const [yoySubtitle, setYoySubtitle] = useState(
+    "Medical admission count comparison",
+  );
+  const [growthOverride, setGrowthOverride] = useState<string | null>(null);
+  const [adminPanelOpen, setAdminPanelOpen] = useState(false);
+
+  // Admin panel draft states
+  const [draftMed2024, setDraftMed2024] = useState(
+    String(trendBase2024Medical),
+  );
+  const [draftBuet2024, setDraftBuet2024] = useState(String(trendBase2024Buet));
+  const [draftMed2025, setDraftMed2025] = useState(
+    String(trendBase2025Medical),
+  );
+  const [draftSubtitle, setDraftSubtitle] = useState(yoySubtitle);
+  const [draftGrowth, setDraftGrowth] = useState(growthOverride ?? "+44%");
+
+  const [editingSubtitle, setEditingSubtitle] = useState(false);
+
+  const totalSubmittedAll = submittedStudents.length;
+
+  const [growthCardOverride, setGrowthCardOverride] = useState<string | null>(
+    null,
+  );
+
+  // Admin-editable card labels
+  const [cardLabels, setCardLabels] = useState([
+    "Total Medical Students (All Years)",
+    "BUET Admissions (HSC 2024)",
+    "Unique Institutions (2025)",
+    totalSubmittedAll > 0
+      ? `+${totalSubmittedAll} Submitted (Future)`
+      : "Growth (2024→2025)",
+  ]);
+
+  // Admin-editable badge text for charts
+  const [med2025Badge, setMed2025Badge] = useState("36 students");
+  const [med2024Bangla, setMed2024Bangla] = useState("10");
+  const [med2024English, setMed2024English] = useState("15");
+  const [med2024Total, setMed2024Total] = useState("25");
+
+  // Fetch overview settings from backend on mount
+  useEffect(() => {
+    if (!actor) return;
+    let cancelled = false;
+    actor
+      .getOverviewSettings()
+      .then((settings) => {
+        if (cancelled) return;
+        const m24 = Number(settings.trendMed2024);
+        const b24 = Number(settings.trendBuet2024);
+        const m25 = Number(settings.trendMed2025);
+        if (m24 !== 0) {
+          setTrendBase2024Medical(m24);
+          setDraftMed2024(String(m24));
+        }
+        if (b24 !== 0) {
+          setTrendBase2024Buet(b24);
+          setDraftBuet2024(String(b24));
+        }
+        if (m25 !== 0) {
+          setTrendBase2025Medical(m25);
+          setDraftMed2025(String(m25));
+        }
+        if (settings.yoySubtitle) {
+          setYoySubtitle(settings.yoySubtitle);
+          setDraftSubtitle(settings.yoySubtitle);
+        }
+        if (settings.growthOverride) {
+          setGrowthOverride(settings.growthOverride);
+          setGrowthCardOverride(settings.growthOverride);
+          setDraftGrowth(settings.growthOverride);
+        }
+        if (settings.med2025Badge) setMed2025Badge(settings.med2025Badge);
+        if (settings.med2024Bangla) setMed2024Bangla(settings.med2024Bangla);
+        if (settings.med2024English) setMed2024English(settings.med2024English);
+        if (settings.med2024Total) setMed2024Total(settings.med2024Total);
+        setCardLabels((prev) => {
+          const next = [...prev];
+          if (settings.cardLabel0) next[0] = settings.cardLabel0;
+          if (settings.cardLabel1) next[1] = settings.cardLabel1;
+          if (settings.cardLabel2) next[2] = settings.cardLabel2;
+          if (settings.cardLabel3) next[3] = settings.cardLabel3;
+          return next;
+        });
+      })
+      .catch((err) => {
+        if (!cancelled) console.error("Failed to load overview settings:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [actor]);
 
   // Compute future years from submitted students (year > 2025)
   const futureYears = useMemo(() => {
@@ -103,15 +298,15 @@ export default function OverviewTab({
     return base;
   }, [futureYears, submittedStudents]);
 
-  // Trend line data: per year, medical + buet
+  // Trend line data uses admin-editable base values
   const trendData = useMemo(() => {
     const base: Array<{
       year: string;
       medical: number | null;
       buet: number | null;
     }> = [
-      { year: "2024", medical: 25, buet: 10 },
-      { year: "2025", medical: 36, buet: null },
+      { year: "2024", medical: trendBase2024Medical, buet: trendBase2024Buet },
+      { year: "2025", medical: trendBase2025Medical, buet: null },
     ];
     for (const yr of futureYears) {
       const medCount = submittedStudents.filter(
@@ -127,14 +322,18 @@ export default function OverviewTab({
       });
     }
     return base;
-  }, [futureYears, submittedStudents]);
-
-  const totalSubmittedAll = submittedStudents.length;
+  }, [
+    futureYears,
+    submittedStudents,
+    trendBase2024Medical,
+    trendBase2024Buet,
+    trendBase2025Medical,
+  ]);
 
   const highlightCards = [
     {
       icon: Users,
-      label: "Total Medical Students (All Years)",
+      label: cardLabels[0],
       value:
         medical2024.length +
         medical2025.length +
@@ -142,45 +341,233 @@ export default function OverviewTab({
       color: "text-gold",
       bg: "bg-primary/10",
       border: "border-primary/20",
+      editable: false,
+      labelIdx: 0,
     },
     {
       icon: Building2,
-      label: "BUET Admissions (HSC 2024)",
+      label: cardLabels[1],
       value:
         buet2024.length +
         submittedStudents.filter((s) => s.examType === "BUET").length,
       color: "text-teal",
       bg: "bg-accent/10",
       border: "border-accent/20",
+      editable: false,
+      labelIdx: 1,
     },
     {
       icon: Star,
-      label: "Unique Institutions (2025)",
+      label: cardLabels[2],
       value: new Set(medical2025.map((s) => s.shortName)).size,
       color: "text-gold",
       bg: "bg-primary/10",
       border: "border-primary/20",
+      editable: false,
+      labelIdx: 2,
     },
     {
       icon: TrendingUp,
-      label:
-        totalSubmittedAll > 0
-          ? `+${totalSubmittedAll} Submitted (Future)`
-          : "Growth (2024→2025)",
-      value: totalSubmittedAll > 0 ? totalSubmittedAll : "+44%",
+      label: cardLabels[3],
+      value:
+        growthCardOverride ??
+        (totalSubmittedAll > 0 ? totalSubmittedAll : "+44%"),
       color: "text-teal",
       bg: "bg-accent/10",
       border: "border-accent/20",
+      editable: true,
+      labelIdx: 3,
     },
   ];
 
+  const applyTrendEdits = async () => {
+    const m24 = Number(draftMed2024);
+    const b24 = Number(draftBuet2024);
+    const m25 = Number(draftMed2025);
+    const newM24 = !Number.isNaN(m24) ? m24 : trendBase2024Medical;
+    const newB24 = !Number.isNaN(b24) ? b24 : trendBase2024Buet;
+    const newM25 = !Number.isNaN(m25) ? m25 : trendBase2025Medical;
+    if (!Number.isNaN(m24)) setTrendBase2024Medical(m24);
+    if (!Number.isNaN(b24)) setTrendBase2024Buet(b24);
+    if (!Number.isNaN(m25)) setTrendBase2025Medical(m25);
+    setYoySubtitle(draftSubtitle);
+    setGrowthOverride(draftGrowth || null);
+    setGrowthCardOverride(draftGrowth || null);
+
+    // Persist to backend
+    if (actor && sessionToken) {
+      try {
+        await actor.updateOverviewSettings(
+          {
+            trendMed2024: BigInt(newM24),
+            trendBuet2024: BigInt(newB24),
+            trendMed2025: BigInt(newM25),
+            yoySubtitle: draftSubtitle,
+            growthOverride: draftGrowth || "",
+            med2025Badge,
+            med2024Bangla,
+            med2024English,
+            med2024Total,
+            cardLabel0: cardLabels[0] ?? "",
+            cardLabel1: cardLabels[1] ?? "",
+            cardLabel2: cardLabels[2] ?? "",
+            cardLabel3: cardLabels[3] ?? "",
+          },
+          sessionToken,
+        );
+      } catch (err) {
+        console.error("Failed to save overview settings:", err);
+      }
+    }
+  };
+
   return (
     <div className="space-y-8">
+      {/* Admin Edit Panel */}
+      {isAdmin && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="rounded-xl border border-primary/30 bg-primary/5 overflow-hidden"
+        >
+          <button
+            type="button"
+            onClick={() => setAdminPanelOpen((o) => !o)}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-primary/8 transition-colors"
+          >
+            <div className="flex items-center gap-2.5">
+              <Shield className="w-4 h-4 text-primary" />
+              <span className="font-display font-semibold text-primary text-sm">
+                Admin Controls
+              </span>
+              <Badge className="bg-primary/20 text-primary border-primary/30 text-xs px-1.5 py-0 font-mono">
+                Edit Charts
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <Edit2 className="w-3.5 h-3.5 text-primary/60" />
+              {adminPanelOpen ? (
+                <ChevronUp className="w-4 h-4 text-primary/60" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-primary/60" />
+              )}
+            </div>
+          </button>
+
+          {adminPanelOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="border-t border-primary/20 px-4 pb-4 pt-3 space-y-4"
+            >
+              <p className="text-xs text-muted-foreground">
+                Changes will be saved to the backend and persist for all
+                visitors.
+              </p>
+
+              {/* Trend Base Values */}
+              <div>
+                <p className="text-xs font-display font-semibold text-foreground mb-2">
+                  Edit Trend Line Base Values
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label
+                      htmlFor="admin-med2024"
+                      className="text-xs text-muted-foreground mb-1 block"
+                    >
+                      Medical 2024
+                    </label>
+                    <Input
+                      id="admin-med2024"
+                      type="number"
+                      value={draftMed2024}
+                      onChange={(e) => setDraftMed2024(e.target.value)}
+                      className="h-8 text-sm bg-secondary border-primary/30 focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="admin-buet2024"
+                      className="text-xs text-muted-foreground mb-1 block"
+                    >
+                      BUET 2024
+                    </label>
+                    <Input
+                      id="admin-buet2024"
+                      type="number"
+                      value={draftBuet2024}
+                      onChange={(e) => setDraftBuet2024(e.target.value)}
+                      className="h-8 text-sm bg-secondary border-primary/30 focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="admin-med2025"
+                      className="text-xs text-muted-foreground mb-1 block"
+                    >
+                      Medical 2025
+                    </label>
+                    <Input
+                      id="admin-med2025"
+                      type="number"
+                      value={draftMed2025}
+                      onChange={(e) => setDraftMed2025(e.target.value)}
+                      className="h-8 text-sm bg-secondary border-primary/30 focus:border-primary"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* YoY Subtitle */}
+              <div>
+                <p className="text-xs font-display font-semibold text-foreground mb-2">
+                  Year-over-Year Chart Subtitle
+                </p>
+                <Input
+                  value={draftSubtitle}
+                  onChange={(e) => setDraftSubtitle(e.target.value)}
+                  className="h-8 text-sm bg-secondary border-primary/30 focus:border-primary"
+                  placeholder="Chart subtitle text"
+                />
+              </div>
+
+              {/* Growth Card Override */}
+              <div>
+                <p className="text-xs font-display font-semibold text-foreground mb-2">
+                  Growth Card Override Value
+                </p>
+                <Input
+                  value={draftGrowth}
+                  onChange={(e) => setDraftGrowth(e.target.value)}
+                  className="h-8 text-sm bg-secondary border-primary/30 focus:border-primary"
+                  placeholder="e.g. +44% or 61"
+                />
+              </div>
+
+              <Button
+                size="sm"
+                onClick={() => {
+                  void applyTrendEdits();
+                }}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 font-display font-semibold text-xs gap-1.5 h-8"
+              >
+                <Check className="w-3.5 h-3.5" />
+                Apply & Save
+              </Button>
+            </motion.div>
+          )}
+        </motion.div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {highlightCards.map((card, i) => (
           <motion.div
-            key={card.label}
+            key={`card-${card.labelIdx}`}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.08, duration: 0.4 }}
@@ -193,10 +580,32 @@ export default function OverviewTab({
                 <div
                   className={`text-3xl font-display font-bold stat-counter ${card.color}`}
                 >
-                  {card.value}
+                  {card.editable && isAdmin ? (
+                    <EditableStatValue
+                      value={card.value}
+                      isAdmin={isAdmin}
+                      onSave={(v) => setGrowthCardOverride(v)}
+                    />
+                  ) : (
+                    card.value
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground font-body mt-1 leading-tight">
-                  {card.label}
+                  {isAdmin ? (
+                    <EditableStatValue
+                      value={card.label}
+                      isAdmin={isAdmin}
+                      onSave={(v) =>
+                        setCardLabels((prev) => {
+                          const next = [...prev];
+                          next[card.labelIdx] = v;
+                          return next;
+                        })
+                      }
+                    />
+                  ) : (
+                    card.label
+                  )}
                 </p>
               </CardContent>
             </Card>
@@ -218,9 +627,44 @@ export default function OverviewTab({
                 <TrendingUp className="w-5 h-5 text-gold" />
                 Year-over-Year: Medical
               </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Medical admission count comparison
-              </p>
+              <div className="flex items-center gap-1.5 group">
+                {isAdmin && editingSubtitle ? (
+                  <span className="flex items-center gap-1">
+                    <Input
+                      value={yoySubtitle}
+                      onChange={(e) => setYoySubtitle(e.target.value)}
+                      className="h-6 text-xs bg-secondary border-primary/30 focus:border-primary px-2 w-52"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === "Escape")
+                          setEditingSubtitle(false);
+                      }}
+                      onBlur={() => setEditingSubtitle(false)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setEditingSubtitle(false)}
+                      className="text-green-500"
+                    >
+                      <Check className="w-3 h-3" />
+                    </button>
+                  </span>
+                ) : (
+                  <p
+                    className={`text-xs text-muted-foreground ${isAdmin ? "cursor-pointer hover:text-foreground" : ""}`}
+                    onClick={() => isAdmin && setEditingSubtitle(true)}
+                    onKeyDown={(e) => {
+                      if (isAdmin && (e.key === "Enter" || e.key === " "))
+                        setEditingSubtitle(true);
+                    }}
+                  >
+                    {yoySubtitle}
+                    {isAdmin && (
+                      <Pencil className="w-2.5 h-2.5 inline ml-1 text-primary/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )}
+                  </p>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer
@@ -311,7 +755,11 @@ export default function OverviewTab({
                   Medical 2025: By College
                 </CardTitle>
                 <Badge className="bg-primary/20 text-gold border-primary/30 font-mono text-xs">
-                  36 students
+                  <EditableStatValue
+                    value={med2025Badge}
+                    isAdmin={isAdmin}
+                    onSave={(v) => setMed2025Badge(v)}
+                  />
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -408,15 +856,30 @@ export default function OverviewTab({
               <CardTitle className="font-display text-lg text-foreground">
                 Medical 2024: By College
               </CardTitle>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Badge className="bg-accent/20 text-teal border-accent/30 font-mono text-xs">
-                  Bangla: 10
+                  Bangla:{" "}
+                  <EditableStatValue
+                    value={med2024Bangla}
+                    isAdmin={isAdmin}
+                    onSave={(v) => setMed2024Bangla(v)}
+                  />
                 </Badge>
                 <Badge className="bg-primary/20 text-gold border-primary/30 font-mono text-xs">
-                  English: 15
+                  English:{" "}
+                  <EditableStatValue
+                    value={med2024English}
+                    isAdmin={isAdmin}
+                    onSave={(v) => setMed2024English(v)}
+                  />
                 </Badge>
                 <Badge className="bg-secondary text-foreground font-mono text-xs">
-                  Total: 25
+                  Total:{" "}
+                  <EditableStatValue
+                    value={med2024Total}
+                    isAdmin={isAdmin}
+                    onSave={(v) => setMed2024Total(v)}
+                  />
                 </Badge>
               </div>
             </div>
