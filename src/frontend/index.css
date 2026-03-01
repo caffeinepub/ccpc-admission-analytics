@@ -1,0 +1,209 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Font Declarations ─────────────────────────────────────────────────── */
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/assets/fonts/BricolageGrotesque[opsz,wdth,wght].woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Cabinet Grotesk";
+  src: url("/assets/fonts/CabinetGrotesk-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Fraunces";
+  src: url("/assets/fonts/Fraunces[SOFT,WONK,opsz,wght].woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/assets/fonts/JetBrainsMono[wght].woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+/* ─── Design Tokens: Deep Navy + Gold Academic Theme ──────────────────────── */
+@layer base {
+  :root {
+    --radius: 0.5rem;
+
+    /* Deep Navy Background */
+    --background: 0.10 0.018 265;
+    --foreground: 0.95 0.01 90;
+
+    /* Cards */
+    --card: 0.14 0.022 265;
+    --card-foreground: 0.95 0.01 90;
+
+    /* Popovers */
+    --popover: 0.16 0.022 265;
+    --popover-foreground: 0.95 0.01 90;
+
+    /* Primary: Gold/Amber */
+    --primary: 0.78 0.18 75;
+    --primary-foreground: 0.10 0.018 265;
+
+    /* Secondary: Lighter navy */
+    --secondary: 0.20 0.028 265;
+    --secondary-foreground: 0.88 0.01 90;
+
+    /* Muted */
+    --muted: 0.18 0.025 265;
+    --muted-foreground: 0.58 0.03 265;
+
+    /* Accent: Teal/Cyan */
+    --accent: 0.55 0.15 195;
+    --accent-foreground: 0.10 0.018 265;
+
+    /* Destructive */
+    --destructive: 0.60 0.22 27;
+    --destructive-foreground: 0.98 0 0;
+
+    /* Borders */
+    --border: 0.25 0.03 265;
+    --input: 0.22 0.028 265;
+    --ring: 0.78 0.18 75;
+
+    /* Chart Colors: Gold, Teal, Coral, Emerald, Violet */
+    --chart-1: 0.78 0.18 75;
+    --chart-2: 0.65 0.16 195;
+    --chart-3: 0.72 0.19 27;
+    --chart-4: 0.68 0.17 155;
+    --chart-5: 0.62 0.18 300;
+
+    /* Sidebar */
+    --sidebar: 0.12 0.022 265;
+    --sidebar-foreground: 0.88 0.01 90;
+    --sidebar-primary: 0.78 0.18 75;
+    --sidebar-primary-foreground: 0.10 0.018 265;
+    --sidebar-accent: 0.55 0.15 195;
+    --sidebar-accent-foreground: 0.10 0.018 265;
+    --sidebar-border: 0.25 0.03 265;
+    --sidebar-ring: 0.78 0.18 75;
+
+    /* Custom tokens */
+    --gold: 0.78 0.18 75;
+    --teal: 0.55 0.15 195;
+    --navy-deep: 0.08 0.018 265;
+    --navy-mid: 0.14 0.022 265;
+    --navy-light: 0.22 0.032 265;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+    background-image:
+      radial-gradient(ellipse at 10% 20%, oklch(0.55 0.15 195 / 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 90% 80%, oklch(0.78 0.18 75 / 0.06) 0%, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3 {
+    @apply font-display;
+  }
+}
+
+/* ─── Custom Utilities ────────────────────────────────────────────────────── */
+@layer utilities {
+  .text-gold {
+    color: oklch(var(--gold));
+  }
+
+  .text-teal {
+    color: oklch(var(--teal));
+  }
+
+  .bg-gold {
+    background-color: oklch(var(--gold));
+  }
+
+  .bg-teal {
+    background-color: oklch(var(--teal));
+  }
+
+  .border-gold {
+    border-color: oklch(var(--gold));
+  }
+
+  .glow-gold {
+    box-shadow: 0 0 20px oklch(0.78 0.18 75 / 0.3);
+  }
+
+  .glow-teal {
+    box-shadow: 0 0 20px oklch(0.55 0.15 195 / 0.3);
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5;
+  }
+
+  .stat-counter {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .glass {
+    background: oklch(0.14 0.022 265 / 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .hero-grid {
+    background-image:
+      linear-gradient(oklch(0.78 0.18 75 / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(0.78 0.18 75 / 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+}
+
+/* ─── Scrollbar Styling ───────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: oklch(0.12 0.022 265);
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.30 0.035 265);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.78 0.18 75 / 0.6);
+}
+
+/* ─── Keyframes ───────────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ─── Recharts Overrides ──────────────────────────────────────────────────── */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: oklch(0.25 0.03 265);
+}
+
+.recharts-text {
+  fill: oklch(0.65 0.02 265);
+  font-size: 12px;
+}
+
+.recharts-legend-item-text {
+  color: oklch(0.75 0.02 265) !important;
+  font-size: 12px;
+}
